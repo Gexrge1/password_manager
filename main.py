@@ -2,35 +2,46 @@ import pyperclip
 import rsa
 import csv
 import ast
+from getpass import getpass
+import os
+import bcrypt
 
+
+def handle_key_generation():
+    publicKey,privateKey = rsa.newkeys(512)
+    
+    with open("private.pem","wb") as private:
+        private.write(privateKey.save_pkcs1())
+
+    with open("public.pem","wb") as private:
+        private.write(publicKey.save_pkcs1())
+    
+    print("New public and private keys were created in current directory")
 
 
 def handle_password_save():
     app = input("Write an app/website for which you want to save your password: ")
-    password = input(f"Write the password for {app}: ")
+    password = getpass(f"Write the password for {app}: ")
 
-    publicKey,privateKey = rsa.newkeys(512)
-
+    with open(f"public.pem", "rb") as file:
+        publicKey = rsa.PublicKey.load_pkcs1(file.read())
+  
     encrypted_message = rsa.encrypt(password.encode(),publicKey)
     
-    print(f"Your password is saved as: {app}|{password}")
-    print("The private key was stored in current directory")
-
-    with open(f"{app}_private_key.pem","wb") as file:
-       file.write(privateKey.save_pkcs1()) 
+    print(f"Your password for {app} was saved successfully")
 
 
-    with open("passwords.csv", "a") as csvfile:
+    with open("passwords.csv", "a", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows([[app,encrypted_message]])
 
 
 
-def decrypt_password(app,encrypted_password):
-    with open(f"{app}_private_key.pem", "rb") as file:
-        private_key = rsa.PrivateKey.load_pkcs1(file.read())
+def decrypt_password(encrypted_password):
+    with open(f"private.pem", "rb") as file:
+        privateKey = rsa.PrivateKey.load_pkcs1(file.read())
 
-    decrypted_password = rsa.decrypt(encrypted_password,private_key).decode()
+    decrypted_password = rsa.decrypt(encrypted_password,privateKey).decode()
 
     print("Your password was coppied to clipboard")
     pyperclip.copy(decrypted_password)
@@ -49,7 +60,7 @@ def show_password():
             if len(row) < 2:
                 continue
             if row[0] == app:
-                decrypt_password(row[0],ast.literal_eval(row[1]))
+                decrypt_password(ast.literal_eval(row[1]))
                 found = True
 
     if not found:
@@ -67,29 +78,78 @@ def print_all_passwords():
             else:
                 print(f"\n{row[0]} | {row[1]}")
 
-
-def main():
-
+def main_loop():
     while True:
-        choise = input("\nWelcome to the password saving agent!\n"
+        choice = input("\nWelcome to the password saving agent!\n"
         "1.Set new password 2.Print all saved passwords 3.Show password 4.Exit\n")
 
         try:
-            choise = int(choise)
+            choice = int(choice)
 
         except ValueError:
             print("write a number!!!!")
 
 
-        if choise == 4:
+        if choice == 4:
             break
-        elif choise == 1:
+        elif choice == 1:
             handle_password_save()
-        elif choise == 2:
+        elif choice == 2:
             print_all_passwords()
-        elif choise == 3:
+        elif choice == 3:
             show_password()
 
+def generate_master_password():
+    password = getpass("Create a new password: ").encode("utf-8")
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password,salt)
+    repeat = getpass("Repeat your password: ").encode("utf-8")
+
+    if bcrypt.checkpw(repeat,hashed):
+        print("Your password was saved successfully!")
+        
+        with open("master_password.dat","wb") as file:
+            file.write(hashed)
+
+    else:
+        print("Incorrect password, try again\n")
+        generate_master_password()
+
+
+def ask_master_password():
+    password = getpass("Password: ").encode("utf-8")
+    with open("master_password.dat","rb") as file:
+        hashed = file.read()
+        if bcrypt.checkpw(password,hashed):
+            main_loop()
+        else:
+            print("Incorrect password")
+            ask_master_password()
+
+
+def main():
+
+    directory = os.listdir(path=".")
+
+    if "master_password.dat" not in directory:
+        generate_master_password()
+
+    if "private.pem" and "public.pem" not in directory:
+        handle_key_generation()
+    elif "private.pem" not in directory:
+        print("Your private key is missing from program directory,\n"
+            "either delete your public key to generate the new one or put you private key in program directory")
+        quit()
+    elif "public.pem" not in directory:
+        print("Your public key is missing from program directory, \n"
+            "either delete your public key to generate the new one or put you private key in program directory")
+        quit()
+
+    else:
+        ask_master_password()
+        quit()
+
+    ask_master_password()
 
 if __name__ == "__main__":
     main()
