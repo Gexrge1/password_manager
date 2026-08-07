@@ -20,20 +20,70 @@ def handle_key_generation():
 
 
 def handle_password_save():
+    found_same = False
     app = input("Write an app/website for which you want to save your password: ")
-    password = getpass(f"Write the password for {app}: ")
+    
+    with open("passwords.csv", "r") as file:
+        password_csv_reader = csv.reader(file)
+        for row in password_csv_reader:
+            if len(row) < 2:
+                continue
 
+            if row[0] == app:
+                found_same = True
+                choice = input(f"You already have a password saved for {app}\n"
+                    "1.Override current password 2.Create a password for new app/website 3. Cancel\n")
+                try:
+                    choice = int(choice)
+
+                except ValueError:
+                    print("Write a number!!!!")
+
+                if choice == 2:
+                    handle_password_save()
+                elif choice == 1:
+                    override_password(app)
+                elif choice == 3:
+                    break
+
+    if not found_same:
+        password = getpass(f"Write the password for {app}: ")
+
+        with open(f"public.pem", "rb") as file:
+            publicKey = rsa.PublicKey.load_pkcs1(file.read())
+
+        encrypted_message = rsa.encrypt(password.encode(),publicKey)
+
+        print(f"Your password for {app} was saved successfully")
+
+
+        with open("passwords.csv", "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows([[app,encrypted_message]])
+
+
+
+def override_password(app):
+    password = getpass(f"Write the new password for {app}: ")
+    rows = []
     with open(f"public.pem", "rb") as file:
         publicKey = rsa.PublicKey.load_pkcs1(file.read())
-  
+
     encrypted_message = rsa.encrypt(password.encode(),publicKey)
-    
     print(f"Your password for {app} was saved successfully")
 
+    with open("passwords.csv", "r") as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if len(row) < 2:
+                continue
+            if row[0] == app:
+                row[1] = encrypted_message
+            rows.append(row)
 
-    with open("passwords.csv", "a", newline="") as csvfile:
+    with open("passwords.csv", "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerows([[app,encrypted_message]])
+        writer.writerows(rows)
 
 
 
