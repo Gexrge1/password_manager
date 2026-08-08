@@ -128,10 +128,37 @@ def print_all_passwords():
             else:
                 print(f"\n{row[0]} | {row[1]}")
 
+
+def delete_password():
+    app = input("Write the app/webiste to delete: ")
+    rows = []
+    found = False
+
+    with open("passwords.csv","r") as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if len(row)<2:
+                continue
+            if row[0] == app:
+                found = True
+                continue
+            rows.append(row)
+
+
+    with open("passwords.csv","w") as file:
+        writer = csv.writer(file)
+        writer.writerows(rows)
+
+
+    if found:
+        print(f"The password for {app} was successfully deleted")
+    else:
+        print(f"There is no application/website with the name {app}")
+
 def main_loop():
     while True:
         choice = input("\nWelcome to the password saving agent!\n"
-        "1.Set new password 2.Print all saved passwords 3.Show password 4.Exit\n")
+        "1.Set new password 2.Print all saved passwords 3.Show password 4.Delete password 5.Exit\n")
 
         try:
             choice = int(choice)
@@ -140,7 +167,7 @@ def main_loop():
             print("write a number!!!!")
 
 
-        if choice == 4:
+        if choice == 5:
             break
         elif choice == 1:
             handle_password_save()
@@ -148,6 +175,8 @@ def main_loop():
             print_all_passwords()
         elif choice == 3:
             show_password()
+        elif choice == 4:
+            delete_password()
 
 def generate_master_password():
     password = getpass("Create a new password: ").encode("utf-8")
